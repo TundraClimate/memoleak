@@ -1,0 +1,15 @@
+[package]
+name = "memoleak"
+authors = ["Tundra_Climate <tundra.tundere@gmail.com>"]
+description = "Simply memo manager"
+repository = "https://github.com/TundraClimate/memoleak"
+license = "MIT"
+version = "0.1.0"
+edition = "2024"
+readme = "README.md"
+
+[dependencies]
+
+[[bin]]
+name = "me"
+path = "src/main.rs"
