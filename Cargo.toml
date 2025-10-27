@@ -9,6 +9,7 @@ edition = "2024"
 readme = "README.md"
 
 [dependencies]
+dirs = "6.0.0"
 
 [[bin]]
 name = "me"
