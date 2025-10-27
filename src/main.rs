@@ -1,5 +1,7 @@
 use std::fmt::Display;
-use std::path::PathBuf;
+use std::fs;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::path::{Path, PathBuf};
 use std::process;
 use std::sync::LazyLock;
 
@@ -37,4 +39,64 @@ const APP_DATA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
 
 fn setup() -> Result<(), Error> {
     Ok(())
+}
+
+struct Stash {
+    stash: Vec<Memo>,
+}
+
+struct Memo {
+    original_path: PathBuf,
+    content_buffer: String,
+    content_hash: u64,
+}
+
+impl Memo {
+    fn new<P: AsRef<Path>>(original_path: P) -> Self {
+        Self {
+            original_path: original_path.as_ref().to_path_buf(),
+            content_buffer: String::new(),
+            // String::new hash
+            content_hash: 3476900567878811119,
+        }
+    }
+
+    fn with_content<P: AsRef<Path>>(original_path: P) -> Result<Self, Error> {
+        let mut memo = Memo::new(original_path);
+
+        memo.refresh()?;
+
+        Ok(memo)
+    }
+
+    fn read_latest_content(&self) -> Result<String, Error> {
+        fs::read_to_string(&self.original_path).map_err(|e| {
+            Error::new(format!(
+                "A file reading failed: '{}'({})",
+                self.original_path.to_string_lossy(),
+                e.kind()
+            ))
+        })
+    }
+
+    fn create_latest_hash(&self) -> Result<u64, Error> {
+        let mut hasher = DefaultHasher::new();
+
+        self.read_latest_content()?.hash(&mut hasher);
+
+        Ok(hasher.finish())
+    }
+
+    fn eq_origin(&self) -> bool {
+        Some(self.content_hash) == self.create_latest_hash().ok()
+    }
+
+    fn refresh(&mut self) -> Result<(), Error> {
+        if !self.eq_origin() {
+            self.content_buffer = self.read_latest_content()?;
+            self.content_hash = self.create_latest_hash()?;
+        }
+
+        Ok(())
+    }
 }
