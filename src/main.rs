@@ -45,6 +45,20 @@ struct Stash {
     stash: Vec<Memo>,
 }
 
+impl Stash {
+    fn new() -> Self {
+        Self { stash: vec![] }
+    }
+
+    fn push(&mut self, memo: Memo) {
+        self.stash.push(memo);
+    }
+
+    fn remove(&mut self, idx: usize) {
+        self.stash.remove(idx);
+    }
+}
+
 struct Memo {
     original_path: PathBuf,
     content_buffer: String,
