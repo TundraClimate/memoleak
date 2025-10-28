@@ -7,18 +7,19 @@ use std::sync::LazyLock;
 
 fn main() {
     if let Err(e) = setup() {
-        fatal_err(format!("Local setup failed: {e}"));
+        fatal_err("Local setup failed", e);
     }
 
     let mut stash = Stash::new();
 
     if let Err(e) = fill_stash_with_local(&mut stash) {
-        fatal_err(format!("The memo stash refilling failed: {e}"));
+        fatal_err("The memo stash refilling failed", e);
     }
 }
 
-fn fatal_err<S: AsRef<str>>(s: S) -> ! {
-    eprintln!("[ERR] {}", s.as_ref());
+fn fatal_err<S: AsRef<str>>(head: S, e: Error) -> ! {
+    eprintln!("[ERR] {}", head.as_ref());
+    eprintln!("[ERR] {e}");
 
     process::exit(1)
 }
@@ -28,6 +29,10 @@ struct Error(String);
 impl Error {
     fn new<S: AsRef<str>>(s: S) -> Self {
         Self(s.as_ref().to_string())
+    }
+
+    fn with_cause<S: AsRef<str>, D: Display>(desc: S, cause: D) -> Self {
+        Self(format!("{}: {cause}", desc.as_ref()))
     }
 }
 
@@ -39,7 +44,12 @@ impl Display for Error {
 
 static APP_DATA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     dirs::data_local_dir()
-        .unwrap_or_else(|| fatal_err("A data dir is not found"))
+        .unwrap_or_else(|| {
+            fatal_err(
+                "APP_DATA_PATH loading failed",
+                Error::new("A data dir is not found"),
+            )
+        })
         .join("memoleak")
 });
 
@@ -48,12 +58,12 @@ static MEMO_LIST_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DATA_PATH.join("
 fn setup() -> Result<(), Error> {
     if !APP_DATA_PATH.exists() {
         fs::create_dir_all(&*APP_DATA_PATH)
-            .map_err(|e| Error::new(format!("APP_DATA_PATH creating failed: {}", e.kind())))?;
+            .map_err(|e| Error::with_cause("APP_DATA_PATH creating failed", e.kind()))?;
     }
 
     if !MEMO_LIST_PATH.exists() {
         fs::create_dir_all(&*MEMO_LIST_PATH)
-            .map_err(|e| Error::new(format!("MEMO_LIST_PATH creating failed: {}", e.kind())))?;
+            .map_err(|e| Error::with_cause("MEMO_LIST_PATH creating failed", e.kind()))?;
     }
 
     Ok(())
@@ -103,11 +113,13 @@ impl Memo {
 
     fn read_latest_content(&self) -> Result<String, Error> {
         fs::read_to_string(&self.original_path).map_err(|e| {
-            Error::new(format!(
-                "A file reading failed: '{}'({})",
-                self.original_path.to_string_lossy(),
-                e.kind()
-            ))
+            Error::with_cause(
+                format!(
+                    "A file '{}' reading failed",
+                    self.original_path.to_string_lossy()
+                ),
+                e.kind(),
+            )
         })
     }
 
@@ -135,10 +147,14 @@ impl Memo {
 
 fn create_new_memo<S: AsRef<str>>(memo_name: S) -> Result<Memo, Error> {
     let memo_name = format!("{}.md", memo_name.as_ref());
-    let new_memo_path = MEMO_LIST_PATH.join(memo_name);
+    let new_memo_path = MEMO_LIST_PATH.join(&memo_name);
 
-    fs::write(&new_memo_path, b"")
-        .map_err(|_| Error::new("A file generating failed: the broken name"))?;
+    fs::write(&new_memo_path, b"").map_err(|_| {
+        Error::with_cause(
+            format!("A memo '{memo_name}' generating failed"),
+            "the broken name",
+        )
+    })?;
 
     let memo = Memo::new(new_memo_path);
 
@@ -148,8 +164,15 @@ fn create_new_memo<S: AsRef<str>>(memo_name: S) -> Result<Memo, Error> {
 fn delete_memo(memo: Memo) -> Result<(), Error> {
     let original_path = &memo.original_path;
 
-    fs::remove_file(original_path)
-        .map_err(|e| Error::new(format!("A file cleanup failed: {}", e.kind())))?;
+    fs::remove_file(original_path).map_err(|e| {
+        Error::with_cause(
+            format!(
+                "A file '{}' cleanup failed",
+                original_path.to_string_lossy()
+            ),
+            e.kind(),
+        )
+    })?;
 
     Ok(())
 }
@@ -157,15 +180,12 @@ fn delete_memo(memo: Memo) -> Result<(), Error> {
 fn fill_stash_with_local(stash: &mut Stash) -> Result<(), Error> {
     let memos = MEMO_LIST_PATH
         .read_dir()
-        .map_err(|e| Error::new(format!("Memo files reading failed: {}", e.kind())))?;
+        .map_err(|e| Error::with_cause("Memo files reading failed", e.kind()))?;
 
     for entry in memos {
         match entry {
             Ok(entry) => stash.push(Memo::with_content(entry.path())?),
-            Err(e) => Err(Error::new(format!(
-                "A memo file reading failed: {}",
-                e.kind()
-            )))?,
+            Err(e) => Err(Error::with_cause("A memo file reading failed", e.kind()))?,
         }
     }
 
