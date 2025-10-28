@@ -31,11 +31,13 @@ impl Display for Error {
     }
 }
 
-const APP_DATA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+static APP_DATA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     dirs::data_local_dir()
         .unwrap_or_else(|| fatal_err("A data dir is not found"))
         .join("memoleak")
 });
+
+static MEMO_LIST_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DATA_PATH.join("saved_files"));
 
 fn setup() -> Result<(), Error> {
     Ok(())
@@ -113,4 +115,25 @@ impl Memo {
 
         Ok(())
     }
+}
+
+fn create_new_memo<S: AsRef<str>>(memo_name: S) -> Result<Memo, Error> {
+    let memo_name = format!("{}.md", memo_name.as_ref());
+    let new_memo_path = MEMO_LIST_PATH.join(memo_name);
+
+    fs::write(&new_memo_path, b"")
+        .map_err(|_| Error::new("A file generating failed: the broken name"))?;
+
+    let memo = Memo::new(new_memo_path);
+
+    Ok(memo)
+}
+
+fn delete_memo(memo: Memo) -> Result<(), Error> {
+    let original_path = &memo.original_path;
+
+    fs::remove_file(original_path)
+        .map_err(|e| Error::new(format!("A file cleanup failed: {}", e.kind())))?;
+
+    Ok(())
 }
