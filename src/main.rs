@@ -9,6 +9,12 @@ fn main() {
     if let Err(e) = setup() {
         fatal_err(format!("Local setup failed: {e}"));
     }
+
+    let mut stash = Stash::new();
+
+    if let Err(e) = fill_stash_with_local(&mut stash) {
+        fatal_err(format!("The memo stash refilling failed: {e}"));
+    }
 }
 
 fn fatal_err<S: AsRef<str>>(s: S) -> ! {
@@ -144,6 +150,24 @@ fn delete_memo(memo: Memo) -> Result<(), Error> {
 
     fs::remove_file(original_path)
         .map_err(|e| Error::new(format!("A file cleanup failed: {}", e.kind())))?;
+
+    Ok(())
+}
+
+fn fill_stash_with_local(stash: &mut Stash) -> Result<(), Error> {
+    let memos = MEMO_LIST_PATH
+        .read_dir()
+        .map_err(|e| Error::new(format!("Memo files reading failed: {}", e.kind())))?;
+
+    for entry in memos {
+        match entry {
+            Ok(entry) => stash.push(Memo::with_content(entry.path())?),
+            Err(e) => Err(Error::new(format!(
+                "A memo file reading failed: {}",
+                e.kind()
+            )))?,
+        }
+    }
 
     Ok(())
 }
