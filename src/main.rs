@@ -40,6 +40,16 @@ static APP_DATA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
 static MEMO_LIST_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DATA_PATH.join("saved_files"));
 
 fn setup() -> Result<(), Error> {
+    if !APP_DATA_PATH.exists() {
+        fs::create_dir_all(&*APP_DATA_PATH)
+            .map_err(|e| Error::new(format!("APP_DATA_PATH creating failed: {}", e.kind())))?;
+    }
+
+    if !MEMO_LIST_PATH.exists() {
+        fs::create_dir_all(&*MEMO_LIST_PATH)
+            .map_err(|e| Error::new(format!("MEMO_LIST_PATH creating failed: {}", e.kind())))?;
+    }
+
     Ok(())
 }
 
