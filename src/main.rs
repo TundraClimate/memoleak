@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::process;
+use std::process::{self, Command, ExitStatus, Stdio};
 use std::sync::LazyLock;
 
 fn main() {
@@ -84,6 +84,22 @@ impl Stash {
 
     fn remove(&mut self, idx: usize) {
         self.stash.remove(idx);
+    }
+
+    fn edit(&self, idx: usize) -> Result<ExitStatus, Error> {
+        if idx >= self.stash.len() {
+            return Err(Error::new("Index out of bounds"));
+        }
+
+        let res = Command::new(option_env!("EDITOR").unwrap_or("vim"))
+            .arg(&self.stash[idx].original_path)
+            .stderr(Stdio::null())
+            .status();
+
+        match res {
+            Ok(status) => Ok(status),
+            Err(e) => Err(Error::with_cause("$EDITOR executing failed", e.kind())),
+        }
     }
 }
 
