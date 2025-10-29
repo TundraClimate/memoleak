@@ -1,6 +1,12 @@
+use crossterm::cursor::{Hide, Show};
+use crossterm::execute;
+use crossterm::terminal::{
+    self, DisableLineWrap, EnableLineWrap, EnterAlternateScreen, LeaveAlternateScreen,
+};
 use std::fmt::Display;
 use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, ExitStatus, Stdio};
 use std::sync::LazyLock;
@@ -206,4 +212,14 @@ fn fill_stash_with_local(stash: &mut Stash) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn enable_tui() {
+    let _ = terminal::enable_raw_mode()
+        .and_then(|_| execute!(io::stdout(), DisableLineWrap, EnterAlternateScreen, Hide));
+}
+
+fn disable_tui() {
+    let _ = terminal::disable_raw_mode()
+        .and_then(|_| execute!(io::stdout(), EnableLineWrap, LeaveAlternateScreen, Show));
 }

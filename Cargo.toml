@@ -9,6 +9,7 @@ edition = "2024"
 readme = "README.md"
 
 [dependencies]
+crossterm = "0.29.0"
 dirs = "6.0.0"
 
 [[bin]]
