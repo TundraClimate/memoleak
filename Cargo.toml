@@ -11,6 +11,7 @@ readme = "README.md"
 [dependencies]
 crossterm = "0.29.0"
 dirs = "6.0.0"
+viks = "1.0.5"
 
 [[bin]]
 name = "me"

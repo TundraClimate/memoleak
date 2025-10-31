@@ -1,15 +1,19 @@
 use crossterm::cursor::{Hide, Show};
+use crossterm::event::{self, Event, KeyEvent};
 use crossterm::execute;
 use crossterm::terminal::{
     self, DisableLineWrap, EnableLineWrap, EnterAlternateScreen, LeaveAlternateScreen,
 };
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, ExitStatus, Stdio};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, RwLock};
+use std::thread;
+use viks::{Key, Keymap};
 
 fn main() {
     if let Err(e) = setup() {
@@ -222,4 +226,192 @@ fn enable_tui() {
 fn disable_tui() {
     let _ = terminal::disable_raw_mode()
         .and_then(|_| execute!(io::stdout(), EnableLineWrap, LeaveAlternateScreen, Show));
+}
+
+fn setup_tui() -> AppContainer {
+    enable_tui();
+
+    let orders: Arc<RwLock<Vec<Order>>> = Arc::new(RwLock::new(vec![]));
+
+    let oc = orders.clone();
+
+    thread::spawn(move || {
+        let orders = oc;
+        let mut pool: Vec<Key> = vec![];
+        let mut maps = HashMap::new();
+
+        maps.insert(Keymap::new("ZZ").unwrap(), Order::Exit);
+
+        let keys = maps.keys().map(|k| k.as_vec()).collect::<Vec<_>>();
+
+        'o: loop {
+            if let Ok(Event::Key(ev)) = event::read()
+                && let Some(key) = translate_to_key(ev)
+            {
+                pool.push(key);
+            }
+
+            let keymap = Keymap::from(pool.clone());
+
+            if let Some(matched) = maps.get(&keymap) {
+                orders.write().unwrap().push(*matched);
+
+                pool.clear();
+
+                continue;
+            }
+
+            for key in keys.iter().filter(|k| k.len() > pool.len()) {
+                if key[..pool.len()] == pool {
+                    continue 'o;
+                }
+            }
+
+            pool.clear();
+        }
+    });
+
+    AppContainer::new(orders)
+}
+
+fn translate_to_key(key: KeyEvent) -> Option<Key> {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    let mut key_str = match key.code {
+        KeyCode::Backspace => "BS",
+        KeyCode::Tab => "TAB",
+        KeyCode::Enter => "ENTER",
+        KeyCode::Esc => "ESC",
+        KeyCode::Char(' ') => "SPACE",
+        KeyCode::Char('!') => "!",
+        KeyCode::Char('"') => "\"",
+        KeyCode::Char('#') => "#",
+        KeyCode::Char('$') => "$",
+        KeyCode::Char('%') => "%",
+        KeyCode::Char('&') => "&",
+        KeyCode::Char('\'') => "'",
+        KeyCode::Char('(') => "(",
+        KeyCode::Char(')') => ")",
+        KeyCode::Char('*') => "*",
+        KeyCode::Char('+') => "+",
+        KeyCode::Char(',') => ",",
+        KeyCode::Char('-') => "-",
+        KeyCode::Char('.') => ".",
+        KeyCode::Char('/') => "/",
+        KeyCode::Char('0') => "0",
+        KeyCode::Char('1') => "1",
+        KeyCode::Char('2') => "2",
+        KeyCode::Char('3') => "3",
+        KeyCode::Char('4') => "4",
+        KeyCode::Char('5') => "5",
+        KeyCode::Char('6') => "6",
+        KeyCode::Char('7') => "7",
+        KeyCode::Char('8') => "8",
+        KeyCode::Char('9') => "9",
+        KeyCode::Char(':') => ":",
+        KeyCode::Char(';') => ";",
+        KeyCode::Char('<') => "lt",
+        KeyCode::Char('=') => "=",
+        KeyCode::Char('>') => ">",
+        KeyCode::Char('?') => "?",
+        KeyCode::Char('@') => "@",
+        KeyCode::Char('a') => "a",
+        KeyCode::Char('b') => "b",
+        KeyCode::Char('c') => "c",
+        KeyCode::Char('d') => "d",
+        KeyCode::Char('e') => "e",
+        KeyCode::Char('f') => "f",
+        KeyCode::Char('g') => "g",
+        KeyCode::Char('h') => "h",
+        KeyCode::Char('i') => "i",
+        KeyCode::Char('j') => "j",
+        KeyCode::Char('k') => "k",
+        KeyCode::Char('l') => "l",
+        KeyCode::Char('m') => "m",
+        KeyCode::Char('n') => "n",
+        KeyCode::Char('o') => "o",
+        KeyCode::Char('p') => "p",
+        KeyCode::Char('q') => "q",
+        KeyCode::Char('r') => "r",
+        KeyCode::Char('s') => "s",
+        KeyCode::Char('t') => "t",
+        KeyCode::Char('u') => "u",
+        KeyCode::Char('v') => "v",
+        KeyCode::Char('w') => "w",
+        KeyCode::Char('x') => "x",
+        KeyCode::Char('y') => "y",
+        KeyCode::Char('z') => "z",
+        KeyCode::Char('A') => "A",
+        KeyCode::Char('B') => "B",
+        KeyCode::Char('C') => "C",
+        KeyCode::Char('D') => "D",
+        KeyCode::Char('E') => "E",
+        KeyCode::Char('F') => "F",
+        KeyCode::Char('G') => "G",
+        KeyCode::Char('H') => "H",
+        KeyCode::Char('I') => "I",
+        KeyCode::Char('J') => "J",
+        KeyCode::Char('K') => "K",
+        KeyCode::Char('L') => "L",
+        KeyCode::Char('M') => "M",
+        KeyCode::Char('N') => "N",
+        KeyCode::Char('O') => "O",
+        KeyCode::Char('P') => "P",
+        KeyCode::Char('Q') => "Q",
+        KeyCode::Char('R') => "R",
+        KeyCode::Char('S') => "S",
+        KeyCode::Char('T') => "T",
+        KeyCode::Char('U') => "U",
+        KeyCode::Char('V') => "V",
+        KeyCode::Char('W') => "W",
+        KeyCode::Char('X') => "X",
+        KeyCode::Char('Y') => "Y",
+        KeyCode::Char('Z') => "Z",
+        KeyCode::Char('[') => "[",
+        KeyCode::Char('\\') => "\\",
+        KeyCode::Char(']') => "]",
+        KeyCode::Char('^') => "^",
+        KeyCode::Char('_') => "_",
+        KeyCode::Char('`') => "`",
+        KeyCode::Char('{') => "{",
+        KeyCode::Char('|') => "|",
+        KeyCode::Char('}') => "}",
+        KeyCode::Char('~') => "~",
+        KeyCode::Delete => "DEL",
+        _ => return None,
+    }
+    .to_string();
+
+    let is_big_alpha = key_str.len() == 1 && matches!(key_str.chars().next(), Some('A'..='Z'));
+
+    if !is_big_alpha && key.modifiers.contains(KeyModifiers::SHIFT) {
+        key_str = format!("s-{key_str}");
+    } else if key.modifiers.contains(KeyModifiers::ALT) {
+        key_str = format!("a-{key_str}");
+    } else if key.modifiers.contains(KeyModifiers::CONTROL) {
+        key_str = format!("c-{key_str}");
+    }
+
+    let key_str = if key_str.len() > 1 {
+        format!("<{key_str}>")
+    } else {
+        key_str
+    };
+
+    Key::new(&key_str).ok()
+}
+
+struct AppContainer {
+    orders: Arc<RwLock<Vec<Order>>>,
+}
+
+impl AppContainer {
+    fn new(orders: Arc<RwLock<Vec<Order>>>) -> Self {
+        Self { orders }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Order {
+    Exit,
 }
